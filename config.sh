@@ -92,7 +92,7 @@ echo "drbd disk2 name is $DRBD_DISK2"
 echo "start config drbd"
 sed -e "s/host1-need-config/$DRBD_HOST1_NAME/g" -e "s/host2-need-config/$DRBD_HOST2_NAME/g" \
   -e "s/ip1-need-config/$DRBD_IP1/g" -e "s/ip2-need-config/$DRBD_IP2/g" \
-  -e "s%disk1-need-config%$DRBD_DISK1%g" -e "s%disk2-need-config%$DRBD_DISK2%g" /template/etcd-drbd-template.res >/etc/drbd.d/etcd.res
+  -e "s%disk1-need-config%$DRBD_DISK1%g" -e "s%disk2-need-config%$DRBD_DISK2%g" /etcd-rover/template/etcd-drbd-template.res >/etcd-rover/config/etcd.res
 
 echo "no" | drbdadm create-md etcd
 
@@ -105,47 +105,11 @@ fi
 echo "config etcd process"
 
 sed -e "s%ip1-need-config%$DRBD_IP1%g" -e "s%ip2-need-config%$DRBD_IP2%g" \
-  -e "s%vip-need-config%$VIP%g" /template/start-etcd-template.sh >/etc/keepalived/start-etcd.sh && chmod +x /etc/keepalived/start-etcd.sh
+  -e "s%vip-need-config%$VIP%g" /etcd-rover/template/start-etcd-template.sh >/etcd-rover/config/start-etcd.sh
 
 echo "config keepalived"
-sed -e "s/vip_need_config/$VIP/g" -e "s/dev_need_config/$NET/g" /template/keepalived-template.conf >/etc/keepalived/keepalived.conf
-
-echo "start keepalived"
-systemctl restart keepalived
-
-sleep 5
-
-echo "start check gateway and drbd status"
-while true; do
-  ## if gaateway can not access we should stop keepalived && etcd and set drbd secondary prevent brain split
-  if ! arping -I $NET -c 5 $GATEWAY >/dev/null; then
-    echo "gateway can not access"
-    echo "stop keepalived"
-    systemctl stop keepalived
-    flock -xo /etc/keepalived/etcd.lock -c /etc/keepalived/stop-etcd.sh
-    exit 1
-  else
-    ##if the drbd res is primary and standalone, try connect peer
-    pst=$(drbdadm status etcd | grep "etcd role" | grep Primary)
-    sst=$(drbdadm status etcd | grep "etcd role" | grep Secondary)
-    cst=$(drbdadm status etcd | grep StandAlone)
-    peer=$(drbdadm status etcd | grep peer-disk | grep UpToDate)
-    if [ -n "$pst" ] && [ -n "$cst" ]; then
-      echo "drbd primary connect peer"
-      drbdadm connect etcd
-    fi
-    ##if the drbd res is secondary and standalone, try connect peer with discard data
-    if [ -n "$sst" ] && [ -n "$cst" ]; then
-      echo "drbd secondary connect peer"
-      drbdadm connect etcd --discard-my-data
-    fi
-    ## check etcd process if drbd status is health we should start etcd process
-    if [ -n "$pst" ] && [ -n "$peer" ]; then
-      pid=$(ps -ef | grep etcd | grep "/data/etcd " | grep -v grep | awk '{print $2}')
-      if [ -z "$pid" ]; then
-        echo "should start etcd process"
-        flock -xo /etc/keepalived/etcd.lock -c /etc/keepalived/start-etcd.sh
-      fi
-    fi
-  fi
-done
+sed -e "s/vip_need_config/$VIP/g" -e "s/dev_need_config/$NET/g" /etcd-rover/template/keepalived-template.conf >/etcd-rover/config/keepalived.conf
+sed -e "s/vip_need_config/$VIP/g" -e "s/gateway_need_config/$GATEWAY/g" /etcd-rover/template/check-vip-template.conf > /etcd-rover/config/check-vip.sh
+cp /etcd-rover/template/notify.sh  /etcd-rover/config/notify.sh
+cp /etcd-rover/template/stop-etcd.sh /etcd-rover/config/stop-etcd.sh
+chmod +x /etcd-rover/config/notify.sh /etcd-rover/config/stop-etcd.sh /etcd-rover/config/check-vip.sh /etcd-rover/config/start-etcd.sh

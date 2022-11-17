@@ -6,5 +6,5 @@ fi
 ## sleep 3s prevent etcd was not killed completely
 sleep 3
 echo "set drbd volume secondary"
-umount /data/etcd
+umount /data/etcd > /dev/null
 drbdadm secondary etcd

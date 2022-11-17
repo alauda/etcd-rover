@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: etcd-rover
+#  namespace: kube-system
+spec:
+  initContainers:
+    - name: load-drbd
+      image: registry.alauda.cn:60080/acp/drbd-load:feat-container.2211240901
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        privileged: true
+      env:
+        - name: LB_HOW
+          value: compile
+      volumeMounts:
+        - mountPath: /lib/modules/
+          name: modules-dir
+        - mountPath: /usr/src
+          name: src-dir
+    - name: config
+      image: registry.alauda.cn:60080/acp/etcd-rover-config:feat-container.2211240901
+      imagePullPolicy: IfNotPresent
+      volumeMounts:
+        - mountPath: /etcd-rover/config/
+          name: config
+      args:
+        - start
+        - --gateway=192.168.128.1
+        - --vip=192.168.131.223
+        - --net=eth0
+        - --nip1=192.168.131.224
+        - --nip2=192.168.131.225
+        - --d1=/dev/loop0
+        - --d2=/dev/loop0
+        - --n1=ovn-n3
+        - --n2=ovn-n4
+  containers:
+    - name: tiebreaker
+      image: registry.alauda.cn:60080/acp/etcd-rover:feat-container.2211240901
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      volumeMounts:
+        - mountPath: /data
+          name: data
+        - mountPath: /etcd-rover/config
+          name: config
+        - mountPath: /dev
+          name: devices
+  hostNetwork: true
+  volumes:
+    - name: src-dir
+      hostPath:
+        path: /usr/src
+        type: Directory
+    - name: modules-dir
+      hostPath:
+        path: /lib/modules/
+        type: Directory
+    - name: data
+      hostPath:
+        path: /etc/etcd-rover/
+        type: DirectoryOrCreate
+    - name: devices
+      hostPath:
+        path: /dev
+        type: Directory
+    - name: config
+      emptyDir: {}
