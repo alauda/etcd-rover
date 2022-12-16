@@ -49,6 +49,8 @@ spec:
           name: config
         - mountPath: /dev
           name: devices
+        - mountPath: /lib/modules/
+          name: modules-dir
   hostNetwork: true
   volumes:
     - name: src-dir
