@@ -2,11 +2,12 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: etcd-rover
-#  namespace: kube-system
+  namespace: kube-system
 spec:
   initContainers:
+      ## auto compile drbd module and load in kernel. if install by user, should remove it
     - name: load-drbd
-      image: registry.alauda.cn:60080/acp/drbd-load:feat-container.2211240901
+      image: alaudapublic/drbd-load:v1.0.0
       imagePullPolicy: IfNotPresent
       securityContext:
         privileged: true
@@ -19,25 +20,34 @@ spec:
         - mountPath: /usr/src
           name: src-dir
     - name: config
-      image: registry.alauda.cn:60080/acp/etcd-rover-config:feat-container.2211240901
+      image: alaudapublic/etcd-rover-config:v1.0.0
       imagePullPolicy: IfNotPresent
       volumeMounts:
         - mountPath: /etcd-rover/config/
           name: config
       args:
         - start
-        - --gateway=192.168.128.1
-        - --vip=192.168.131.223
+        ## gateway address
+        - --gateway=192.168.2.1
+        ## keepalived vip
+        - --vip=192.168.3.3
+        ## the network
         - --net=eth0
-        - --nip1=192.168.131.224
-        - --nip2=192.168.131.225
+        ## node 1 ip
+        - --nip1=192.168.3.1
+        ## node 2 ip
+        - --nip2=192.168.3.2
+        ## node 1 storage device
         - --d1=/dev/loop0
+        ## node 2 storage device
         - --d2=/dev/loop0
+        ## node 1 host name
         - --n1=ovn-n3
+        ## node 2 host name
         - --n2=ovn-n4
   containers:
-    - name: tiebreaker
-      image: registry.alauda.cn:60080/acp/etcd-rover:feat-container.2211240901
+    - name: etcd-rover
+      image: alaudapublic/etcd-rover:v1.0.0
       imagePullPolicy: IfNotPresent
       securityContext:
         privileged: true
