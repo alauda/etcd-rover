@@ -1,4 +1,4 @@
-FROM build-harbor.alauda.cn/3rdparty/coreos/etcd:v3.4.14 as etcd
+FROM quay.io/coreos/etcd:v3.4.14 as etcd
 
 FROM osixia/keepalived:2.0.20
 COPY --from=etcd /usr/local/bin/etcd /usr/local/bin/etcd
